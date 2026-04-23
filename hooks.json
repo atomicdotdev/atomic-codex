@@ -1,0 +1,55 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -d .atomic && atomic agent hooks codex session-start || true",
+            "statusMessage": "Atomic: tracking session"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -d .atomic && atomic agent hooks codex user-prompt-submit || true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -d .atomic && atomic agent hooks codex stop || true"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -d .atomic && atomic agent hooks codex post-tool || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -d .atomic && atomic agent hooks codex pre-tool || true"
+          }
+        ]
+      }
+    ]
+  }
+}

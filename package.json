@@ -1,0 +1,32 @@
+{
+  "name": "atomic-codex",
+  "version": "0.1.0",
+  "description": "Atomic VCS integration for Codex — automatic turn recording with AI provenance, intent tracking, and knowledge graph skills.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/atomicdotdev/atomic-codex"
+  },
+  "keywords": [
+    "atomic",
+    "codex",
+    "openai",
+    "vcs",
+    "provenance",
+    "ai-agent",
+    "version-control"
+  ],
+  "files": [
+    "hooks.json",
+    "AGENTS.md",
+    "skills/",
+    "install.js",
+    "install.sh"
+  ],
+  "bin": {
+    "atomic-codex": "install.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js --silent"
+  }
+}
