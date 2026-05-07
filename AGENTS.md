@@ -2,6 +2,19 @@
 
 You use **Atomic VCS** (not git). A draft view is created for each session automatically.
 
+## Version control rules
+
+- **Never use `git` for repository operations.** Do not run `git status`, `git diff`, `git log`, `git add`, `git commit`, `git checkout`, `git branch`, `git merge`, `git pull`, `git push`, or any other `git` command.
+- Use the **Atomic CLI** for version-control context:
+  - `atomic status` instead of `git status`
+  - `atomic diff` instead of `git diff`
+  - `atomic log` instead of `git log`
+  - `atomic change <hash>` instead of `git show <hash>`
+  - `atomic view list` instead of `git branch`
+  - `atomic view switch <name>` instead of `git checkout <name>` when the user explicitly asks to switch views
+  - `atomic pull` / `atomic push` instead of `git pull` / `git push`
+- In this Codex integration, do **not** run `atomic add` or `atomic record`; hooks record the turn automatically.
+
 ## Every prompt is a turn. Every turn follows this sequence.
 
 ### 1. Create an intent

@@ -83,7 +83,7 @@ After editing intent markdown files, run `atomic vault sync` to persist changes 
 
 ## Full Workflow (End to End)
 
-Follow this sequence for every piece of work:
+In the Codex integration, hooks create the draft view and record changes automatically. Follow this sequence for every piece of work:
 
 ### 1. Check existing intents
 
@@ -96,58 +96,48 @@ Look for an existing intent that matches your task. Do NOT create duplicates.
 ### 2. Create ONE intent (if needed)
 
 ```bash
-atomic vault intent create "Implement user authentication"
+atomic vault intent create --title "Implement user authentication"
 ```
 
 Create exactly one intent per unit of work. Fill in the intent file at `.vault/intents/<id>/intent.md`.
 
-### 3. Start a goal
+### 3. Start a goal (optional)
 
 ```bash
 atomic vault goal start "auth-implementation"
 atomic vault intent link <intent-id> --goal auth-implementation
 ```
 
-### 4. Create a draft view and switch to it
+### 4. Do the work
+
+Write code, add files, iterate. Use Atomic for version-control context when needed:
 
 ```bash
-atomic view create auth-feature --draft
-atomic view switch auth-feature
+atomic status
+atomic diff
+atomic log
 ```
 
-Draft views are isolated workspaces. Always create a draft view for new work.
+**Do not run `git` commands for repository operations.** Use `atomic status`, `atomic diff`, `atomic log`, `atomic change`, `atomic view list`, `atomic pull`, and `atomic push` instead.
 
-### 5. Do the work
+**Do not run `atomic add` or `atomic record` in Codex.** The hook system records changes automatically with AI provenance when the turn ends.
 
-Write code, add files, iterate.
+**Do not create or switch views.** The session draft view is created automatically. Only run `atomic view switch <name>` if the user explicitly asks you to switch views.
 
-```bash
-atomic add src/auth.rs
-atomic add src/auth_test.rs
-```
-
-### 6. Record changes
-
-```bash
-atomic record -m "feat: add user authentication module"
-```
-
-Record frequently — small, focused changes are better than large ones.
-
-### 7. Update intent status
+### 5. Update intent status
 
 ```bash
 atomic vault intent update <id> --status review
 ```
 
-### 8. Stop the goal when done
+### 6. Stop the goal when done (if one was started)
 
 ```bash
 atomic vault goal stop
 atomic vault intent update <id> --status done
 ```
 
-### 9. Sync vault state
+### 7. Sync vault state
 
 ```bash
 atomic vault sync
@@ -160,8 +150,7 @@ If you stopped a goal and need to come back:
 ```bash
 atomic vault goal list                  # Find the suspended goal
 atomic vault goal resume "auth-implementation"
-atomic view switch auth-feature         # Switch back to the draft view
-# Continue working...
+# Continue working in the automatically-created session view...
 ```
 
 ## Tips
@@ -170,4 +159,5 @@ atomic view switch auth-feature         # Switch back to the draft view
 - Start every session by checking `atomic vault intent list` and `atomic vault goal list`
 - Fill in the intent markdown completely before starting implementation
 - Use `atomic vault sync` after editing any vault markdown files
-- Draft views keep your work isolated until it's ready to insert into a shared view
+- Codex hooks create the session draft view and record changes automatically
+- Never use `git` for repository operations; use the equivalent `atomic` command instead

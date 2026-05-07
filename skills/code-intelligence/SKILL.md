@@ -111,4 +111,4 @@ Build understanding iteratively:
 - If search returns nothing, try synonyms or shorter terms
 - Node IDs are **exact strings** — a single wrong character means "not found"
 - Use `file:` neighbors as a table of contents for any source file
-- The KG is populated from recorded changes — unrecorded work won't appear until after `atomic record`
+- The KG is populated from recorded changes — unrecorded work won't appear until Codex hooks automatically record the turn
