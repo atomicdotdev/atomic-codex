@@ -1,4 +1,7 @@
 {
+  "target": "~/.codex/hooks.json",
+  "hooks_key": "hooks",
+  "command_prefix": "atomic agent hooks codex",
   "hooks": {
     "SessionStart": [
       {
@@ -21,12 +24,12 @@
         ]
       }
     ],
-    "Stop": [
+    "PreToolUse": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "test -d .atomic && atomic agent hooks codex stop || true"
+            "command": "test -d .atomic && atomic agent hooks codex pre-tool || true"
           }
         ]
       }
@@ -41,12 +44,12 @@
         ]
       }
     ],
-    "PreToolUse": [
+    "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "test -d .atomic && atomic agent hooks codex pre-tool || true"
+            "command": "test -d .atomic && atomic agent hooks codex stop || true"
           }
         ]
       }

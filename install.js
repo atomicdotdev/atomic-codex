@@ -3,13 +3,19 @@
 /**
  * atomic-codex install
  *
- * Installs Atomic hooks into ~/.codex/hooks.json and enables the feature flag.
+ * 1. Enables the Codex `hooks` feature flag in ~/.codex/config.toml
+ * 2. Registers Atomic's hooks by delegating to
+ *      atomic agent enable --hooks hooks/codex.atomic-hooks.json
+ *    The manifest in this repo is the source of truth for the hook wiring, so
+ *    when Codex changes its hook schema you edit the manifest and re-publish —
+ *    no `atomic` rebuild. The merge engine ships with `atomic` (no extra deps).
+ * 3. Symlinks AGENTS.md and the skills into ~/.codex/ (live updates on pull).
  *
  * Usage:
  *   npx atomic-codex            # install from npm
  *   node install.js             # install from local checkout
  *   node install.js --silent    # postinstall
- *   node install.js --uninstall # remove hooks
+ *   node install.js --uninstall # remove hooks + symlinks
  */
 
 const fs = require("fs");
@@ -22,180 +28,161 @@ const uninstall = process.argv.includes("--uninstall");
 
 const PKG_DIR = __dirname;
 const CODEX_DIR = path.join(os.homedir(), ".codex");
-const HOOKS_TARGET = path.join(CODEX_DIR, "hooks.json");
 const CONFIG_TARGET = path.join(CODEX_DIR, "config.toml");
-const ATOMIC_PREFIX = "atomic agent hooks codex";
+const MANIFEST = path.join(PKG_DIR, "hooks", "codex.atomic-hooks.json");
+const SKILLS_TARGET = path.join(CODEX_DIR, "skills");
+const AGENTS_SRC = path.join(PKG_DIR, "AGENTS.md");
+const AGENTS_DST = path.join(CODEX_DIR, "AGENTS.md");
 
-function copyDirSync(src, dst) {
-  if (!fs.existsSync(dst)) fs.mkdirSync(dst, { recursive: true });
-  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    const srcPath = path.join(src, entry.name);
-    const dstPath = path.join(dst, entry.name);
-    if (entry.isDirectory()) {
-      copyDirSync(srcPath, dstPath);
-    } else {
-      fs.copyFileSync(srcPath, dstPath);
-    }
-  }
-}
+const SKILLS = ["atomic-vault", "atomic-vcs", "code-intelligence"];
 
 function tryExec(cmd) {
   try {
-    execSync(cmd, { stdio: "pipe" });
-    return true;
+    return execSync(cmd, { encoding: "utf8" });
+  } catch {
+    return null;
+  }
+}
+
+function hasAtomic() {
+  return tryExec("atomic --version") !== null;
+}
+
+function ensureDir(dir) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+function isOurSymlink(dstPath) {
+  try {
+    if (!fs.lstatSync(dstPath).isSymbolicLink()) return false;
+    return fs.readlinkSync(dstPath).startsWith(PKG_DIR);
   } catch {
     return false;
   }
 }
 
-function readHooksJson(filePath) {
-  try {
-    if (!fs.existsSync(filePath)) return { hooks: {} };
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
-  } catch {
-    return { hooks: {} };
-  }
+// Returns "linked" | "kept" | "missing"
+function linkInto(srcPath, dstPath) {
+  if (!fs.existsSync(srcPath)) return "missing";
+  if (fs.existsSync(dstPath) && !isOurSymlink(dstPath)) return "kept";
+  if (fs.existsSync(dstPath) || isOurSymlink(dstPath)) fs.unlinkSync(dstPath);
+  ensureDir(path.dirname(dstPath));
+  fs.symlinkSync(srcPath, dstPath);
+  return "linked";
 }
 
-function writeHooksJson(filePath, data) {
-  const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n");
-}
-
+// Enable the Codex `hooks` feature flag, migrating the deprecated
+// `codex_hooks` name if present. Returns a short status string.
 function ensureFeatureFlag() {
-  if (!fs.existsSync(CODEX_DIR)) fs.mkdirSync(CODEX_DIR, { recursive: true });
+  ensureDir(CODEX_DIR);
 
-  if (fs.existsSync(CONFIG_TARGET)) {
-    let content = fs.readFileSync(CONFIG_TARGET, "utf8");
-    // Migrate deprecated codex_hooks → hooks
-    if (content.includes("codex_hooks")) {
-      content = content.replace(/codex_hooks\s*=\s*true/, "hooks = true");
-      fs.writeFileSync(CONFIG_TARGET, content);
-      if (!silent) console.log("  config: migrated codex_hooks → hooks");
-    } else if (
-      !content.includes("hooks = true") &&
-      !content.includes("hooks=true")
-    ) {
-      fs.appendFileSync(CONFIG_TARGET, "\n[features]\nhooks = true\n");
-      if (!silent) console.log("  config: enabled hooks feature flag");
-    }
-  } else {
+  if (!fs.existsSync(CONFIG_TARGET)) {
     fs.writeFileSync(CONFIG_TARGET, "[features]\nhooks = true\n");
-    if (!silent)
-      console.log("  config: created config.toml with hooks enabled");
+    return "created config.toml";
   }
+
+  let content = fs.readFileSync(CONFIG_TARGET, "utf8");
+  if (content.includes("codex_hooks")) {
+    content = content.replace(/codex_hooks\s*=\s*true/, "hooks = true");
+    fs.writeFileSync(CONFIG_TARGET, content);
+    return "migrated codex_hooks → hooks";
+  }
+  if (!content.includes("hooks = true") && !content.includes("hooks=true")) {
+    fs.appendFileSync(CONFIG_TARGET, "\n[features]\nhooks = true\n");
+    return "enabled hooks feature flag";
+  }
+  return "already enabled";
 }
 
 function doInstall() {
-  // Enable feature flag
-  ensureFeatureFlag();
+  // 1. Feature flag
+  const configStatus = ensureFeatureFlag();
+  if (!silent) console.log(`  config: ${configStatus}`);
 
-  // Always write the correct Codex hooks directly.
-  //
-  // We don't rely on `atomic agent enable --agent codex --global` because:
-  // 1. It may not support codex yet (falls through to a warning, exits 0)
-  // 2. Even if it did, another agent's hooks (e.g. claude-code) may already
-  //    be installed and need to be replaced with the codex equivalents.
-  const source = readHooksJson(path.join(PKG_DIR, "hooks.json"));
-  const target = readHooksJson(HOOKS_TARGET);
-
-  if (!target.hooks) target.hooks = {};
-  let added = 0;
-
-  for (const [event, matchers] of Object.entries(source.hooks || {})) {
-    if (!target.hooks[event]) target.hooks[event] = [];
-
-    // Remove any existing Codex hooks so we can write fresh ones.
-    // Only touch entries whose commands include our prefix — leave
-    // hooks from other agents or other tools untouched.
-    const before = target.hooks[event].length;
-    target.hooks[event] = target.hooks[event].filter((m) => {
-      const cmds = (m.hooks || []).map((h) => h.command || "");
-      return !cmds.some((c) => c.includes(ATOMIC_PREFIX));
-    });
-    const removed = before - target.hooks[event].length;
-
-    for (const matcher of matchers) {
-      target.hooks[event].push(matcher);
-      added++;
-    }
-
-    if (removed > 0 && !silent) {
-      console.log(`  hooks: replaced ${removed} existing hook(s) for ${event}`);
+  // 2. Hooks — delegate the merge to the atomic binary (manifest is source of truth)
+  let hooksStatus;
+  if (hasAtomic()) {
+    const out = tryExec(`atomic agent enable --hooks "${MANIFEST}"`);
+    hooksStatus =
+      out !== null ? "registered via atomic agent enable" : "FAILED";
+    if (!silent && out) process.stdout.write(out);
+  } else {
+    hooksStatus = "SKIPPED — 'atomic' not on PATH";
+    if (!silent) {
+      console.warn("  hooks: skipped (atomic not found on PATH)");
+      console.warn(
+        `         after installing Atomic, run: atomic agent enable --hooks "${MANIFEST}"`,
+      );
     }
   }
 
-  if (added > 0) writeHooksJson(HOOKS_TARGET, target);
-
-  if (!silent) {
-    console.log(
-      `  hooks: ${added > 0 ? `merged ${added} hooks` : "already installed"}`,
+  // 3. AGENTS.md + skills → symlinks
+  const agentsStatus = linkInto(AGENTS_SRC, AGENTS_DST);
+  let linked = 0;
+  let kept = 0;
+  for (const name of SKILLS) {
+    const r = linkInto(
+      path.join(PKG_DIR, "skills", name, "SKILL.md"),
+      path.join(SKILLS_TARGET, name, "SKILL.md"),
     );
-  }
-
-  // Install AGENTS.md globally so all Codex sessions get Atomic instructions
-  const agentsSrc = path.join(PKG_DIR, "AGENTS.md");
-  const agentsDst = path.join(CODEX_DIR, "AGENTS.md");
-  if (fs.existsSync(agentsSrc)) {
-    fs.copyFileSync(agentsSrc, agentsDst);
-    if (!silent) console.log("  agents: installed AGENTS.md");
-  }
-
-  // Install skills globally
-  const skillsSrc = path.join(PKG_DIR, "skills");
-  const skillsDst = path.join(CODEX_DIR, "skills");
-  if (fs.existsSync(skillsSrc)) {
-    copyDirSync(skillsSrc, skillsDst);
-    if (!silent) console.log("  skills: installed to ~/.codex/skills/");
+    if (r === "linked") linked++;
+    else if (r === "kept") kept++;
   }
 
   if (!silent) {
+    console.log(`  agents: AGENTS.md ${agentsStatus} → ~/.codex/AGENTS.md`);
+    console.log(
+      `  skills: ${linked} symlinked${kept ? `, ${kept} left as-is` : ""} → ~/.codex/skills/`,
+    );
     console.log();
     console.log("\u2713 atomic-codex installed");
+    console.log(`  Hooks:  ${hooksStatus} → ~/.codex/hooks.json`);
+    console.log(
+      `  Config: ${configStatus} (~/.codex/config.toml [features] hooks = true)`,
+    );
+    console.log(
+      "  Skills: ~/.codex/skills/ (/atomic-vault, /atomic-vcs, /code-intelligence)",
+    );
+    console.log();
+    console.log(
+      "Per project: cp AGENTS.md to the repo root and run `atomic init`.",
+    );
   }
 }
 
 function doUninstall() {
-  const hasAtomic = tryExec("atomic --version");
-  if (hasAtomic) tryExec("atomic agent disable --agent codex --global");
+  // 1. Hooks — delegate removal to the atomic binary
+  if (hasAtomic()) {
+    const out = tryExec(`atomic agent disable --hooks "${MANIFEST}"`);
+    if (!silent && out) process.stdout.write(out);
+  }
 
-  if (fs.existsSync(HOOKS_TARGET)) {
-    const target = readHooksJson(HOOKS_TARGET);
-    let removed = 0;
-
-    for (const event of Object.keys(target.hooks || {})) {
-      const before = target.hooks[event].length;
-      target.hooks[event] = target.hooks[event].filter((m) => {
-        const cmds = (m.hooks || []).map((h) => h.command);
-        return !cmds.some((c) => c.includes(ATOMIC_PREFIX));
-      });
-      removed += before - target.hooks[event].length;
-      if (target.hooks[event].length === 0) delete target.hooks[event];
+  // 2. Remove our symlinks (leave user files alone)
+  let removed = 0;
+  if (isOurSymlink(AGENTS_DST)) {
+    fs.unlinkSync(AGENTS_DST);
+    removed++;
+  }
+  for (const name of SKILLS) {
+    const dst = path.join(SKILLS_TARGET, name, "SKILL.md");
+    if (isOurSymlink(dst)) {
+      fs.unlinkSync(dst);
+      removed++;
     }
-
-    if (removed > 0) writeHooksJson(HOOKS_TARGET, target);
-    if (!silent) console.log(`  hooks: removed ${removed} entries`);
   }
 
   if (!silent) {
     console.log();
-    console.log("\u2713 atomic-codex uninstalled");
-    console.log("  Note: AGENTS.md in projects must be removed manually.");
+    console.log(
+      `\u2713 atomic-codex uninstalled (${removed} symlink(s) removed)`,
+    );
+    console.log(
+      "  Note: the `hooks = true` flag in ~/.codex/config.toml is left in place.",
+    );
+    console.log(
+      "  Note: AGENTS.md copied into projects must be removed manually.",
+    );
   }
-}
-
-function printInstructions() {
-  console.log();
-  console.log("  Copy AGENTS.md into your project root:");
-  console.log(
-    `    cp ${path.join(PKG_DIR, "AGENTS.md")} /path/to/your/project/`,
-  );
-  console.log();
-  console.log("  Ensure hooks are enabled in ~/.codex/config.toml:");
-  console.log("    [features]");
-  console.log("    hooks = true");
-  console.log();
 }
 
 if (uninstall) {

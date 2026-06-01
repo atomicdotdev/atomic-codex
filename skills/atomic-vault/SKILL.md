@@ -18,6 +18,7 @@ The vault is Atomic's built-in project management and context system. It tracks 
 ```bash
 atomic vault intent list                # List all intents (CHECK THIS FIRST)
 atomic vault intent create "title"      # Create a new intent
+atomic vault sync                       # persist file edits BEFORE show/update
 atomic vault intent show <id>           # Show intent details
 atomic vault intent update <id> --status <status>  # Update intent status
 atomic vault intent link <id> --goal <goal>         # Link intent to a goal
@@ -79,7 +80,7 @@ How to verify the work is correct.
 Any additional context, decisions, or open questions.
 ```
 
-After editing intent markdown files, run `atomic vault sync` to persist changes back to the vault database.
+After editing intent markdown files, run `atomic vault sync` to persist changes back to the vault database. **Always sync before `intent show` and before `intent update`** — the CLI reads from the database, not the file. Skip the sync and `show` renders the stale placeholder template, and `update` re-materializes the database copy over the file, clobbering your edits. `atomic vault sync` is not `atomic record`; it only moves your `.vault/` edits into the database, and hooks do not do it for you mid-turn.
 
 ## Full Workflow (End to End)
 
@@ -110,23 +111,18 @@ atomic vault intent link <intent-id> --goal auth-implementation
 
 ### 4. Do the work
 
-Write code, add files, iterate. Use Atomic for version-control context when needed:
+Write code and iterate. You do **not** create or switch views, and you do **not** run `atomic add` or `atomic record` — the Codex integration's hooks own all of that:
 
-```bash
-atomic status
-atomic diff
-atomic log
-```
+- **Session start** forks a draft view from your current view and switches into it automatically (a haikunator-named view, e.g. `early-ridge-ffd9`). Your whole session runs inside it.
+- **Turn end** records automatically — the hook runs `status` → `add` (tracks new files) → `record --all` with full AI provenance (model, tokens, cost, session, decision graph).
+- **Session end** switches back to your original view.
 
-**Do not run `git` commands for repository operations.** Use `atomic status`, `atomic diff`, `atomic log`, `atomic change`, `atomic view list`, `atomic pull`, and `atomic push` instead.
-
-**Do not run `atomic add` or `atomic record` in Codex.** The hook system records changes automatically with AI provenance when the turn ends.
-
-**Do not create or switch views.** The session draft view is created automatically. Only run `atomic view switch <name>` if the user explicitly asks you to switch views.
+Never use `git` for repository operations. To review what the hooks recorded (diff, provenance, AI attestation), use the `atomic-vcs` skill: `atomic log -f oneline`, then `atomic change -p -a`.
 
 ### 5. Update intent status
 
 ```bash
+atomic vault sync                              # persist file edits first
 atomic vault intent update <id> --status review
 ```
 
@@ -134,6 +130,7 @@ atomic vault intent update <id> --status review
 
 ```bash
 atomic vault goal stop
+atomic vault sync                              # persist file edits first
 atomic vault intent update <id> --status done
 ```
 
@@ -143,6 +140,8 @@ atomic vault intent update <id> --status done
 atomic vault sync
 ```
 
+A final sync ensures every vault edit is in the database before the turn's automatic record captures it.
+
 ## Resuming Work
 
 If you stopped a goal and need to come back:
@@ -150,7 +149,7 @@ If you stopped a goal and need to come back:
 ```bash
 atomic vault goal list                  # Find the suspended goal
 atomic vault goal resume "auth-implementation"
-# Continue working in the automatically-created session view...
+# Continue working — the hooks manage the session view for you
 ```
 
 ## Tips
@@ -158,6 +157,6 @@ atomic vault goal resume "auth-implementation"
 - One intent per unit of work — keep them focused
 - Start every session by checking `atomic vault intent list` and `atomic vault goal list`
 - Fill in the intent markdown completely before starting implementation
-- Use `atomic vault sync` after editing any vault markdown files
-- Codex hooks create the session draft view and record changes automatically
+- Use `atomic vault sync` after editing any vault markdown files, and always before `intent show`/`update` (otherwise you read or clobber with the stale placeholder)
+- You don't manage views or recording — Codex hooks fork a draft view at session start, record at turn end, and restore your view at session end. Inspect the results with the `atomic-vcs` skill.
 - Never use `git` for repository operations; use the equivalent `atomic` command instead

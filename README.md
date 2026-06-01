@@ -29,16 +29,16 @@ npx atomic-codex
 
 ### What install does
 
-1. **Feature flag** — enables `codex_hooks = true` in `~/.codex/config.toml`
-2. **Hooks** — installs hook entries into `~/.codex/hooks.json`
-3. **AGENTS.md** — must be copied to each project root manually
+1. **Feature flag** — enables `[features] hooks = true` in `~/.codex/config.toml` (migrating the deprecated `codex_hooks` name if present)
+2. **Hooks** — registers the hooks from `hooks/codex.atomic-hooks.json` into `~/.codex/hooks.json` by delegating to `atomic agent enable --hooks`. The hook definitions live in this repo, so updating Codex's hook wiring never requires rebuilding `atomic`.
+3. **Skills & AGENTS.md** — symlinks the 3 skills into `~/.codex/skills/` and `AGENTS.md` into `~/.codex/AGENTS.md` (live updates on pull). `AGENTS.md` is still copied per-project for repo-local context.
 
 ## Prerequisites
 
 - [Atomic VCS](https://atomic.dev) installed and on your PATH (`atomic --version`)
 - A project with an `.atomic/` repository (`atomic init`)
 - [Codex](https://openai.com/codex) installed
-- Hooks feature flag enabled: `[features] codex_hooks = true` in `~/.codex/config.toml`
+- Hooks feature flag enabled: `[features] hooks = true` in `~/.codex/config.toml`
 
 ## Usage
 
@@ -64,7 +64,7 @@ Codex hooks are experimental and under active development:
 
 - `PostToolUse` currently only fires for Bash tool calls (not Write, Edit, etc.)
 - No `SessionEnd` event — session cleanup relies on the next session start
-- Hooks require the `codex_hooks = true` feature flag
+- Hooks require the `[features] hooks = true` feature flag
 - Windows support is temporarily disabled
 
 ## Viewing provenance
@@ -84,12 +84,13 @@ atomic agent attest
 
 | File | Purpose |
 |------|---------|
-| `hooks.json` | Hooks config — merged into `~/.codex/hooks.json` |
-| `AGENTS.md` | Agent instructions — copy to project roots |
+| `hooks/codex.atomic-hooks.json` | Hook manifest (source of truth) — merged into `~/.codex/hooks.json` by `atomic agent enable --hooks` |
+| `AGENTS.md` | Agent instructions — symlinked to `~/.codex/AGENTS.md`, also copy to project roots |
 | `skills/atomic-vault/SKILL.md` | Vault reference (goals, intents, memory) |
+| `skills/atomic-vcs/SKILL.md` | VCS inspection (status, log, change `-p`/`-a`, diff) |
 | `skills/code-intelligence/SKILL.md` | Knowledge graph query patterns |
-| `install.js` | Installs hooks + enables feature flag |
-| `install.sh` | Development install |
+| `install.js` | Enables the feature flag, registers hooks via `atomic agent enable --hooks`, symlinks skills + AGENTS.md |
+| `install.sh` | Development install (same steps) |
 
 ## How hooks work
 
@@ -121,10 +122,10 @@ npx atomic-codex --uninstall
 Or manually:
 
 ```bash
-atomic agent disable --agent codex --global
+atomic agent disable --hooks /path/to/atomic-codex/hooks/codex.atomic-hooks.json
 ```
 
-AGENTS.md files in projects must be removed manually.
+The `[features] hooks = true` flag in `~/.codex/config.toml` and any `AGENTS.md` copied into projects must be removed manually.
 
 ## License
 
