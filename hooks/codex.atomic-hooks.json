@@ -8,7 +8,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "test -d .atomic && atomic agent hooks codex session-start || true",
+            "command": "test -d .atomic || test -f .atomic-sandbox && atomic agent hooks codex session-start || true",
             "statusMessage": "Atomic: tracking session"
           }
         ]
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "test -d .atomic && atomic agent hooks codex user-prompt-submit || true"
+            "command": "test -d .atomic || test -f .atomic-sandbox && atomic agent hooks codex user-prompt-submit || true"
           }
         ]
       }
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "test -d .atomic && atomic agent hooks codex pre-tool || true"
+            "command": "test -d .atomic || test -f .atomic-sandbox && atomic agent hooks codex pre-tool || true"
           }
         ]
       }
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "test -d .atomic && atomic agent hooks codex post-tool || true"
+            "command": "test -d .atomic || test -f .atomic-sandbox && atomic agent hooks codex post-tool || true"
           }
         ]
       }
@@ -49,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "test -d .atomic && atomic agent hooks codex stop || true"
+            "command": "test -d .atomic || test -f .atomic-sandbox && atomic agent hooks codex stop || true"
           }
         ]
       }

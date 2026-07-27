@@ -4,6 +4,8 @@
 
 Automatic turn recording with AI provenance, intent tracking, and knowledge graph skills.
 
+> **Definitive source:** this repository lives on Atomic storage at `https://atomic.atomic.storage/workspaces/oss/projects/atomic-codex/code`. The GitHub repo is a mirror.
+
 ## What it does
 
 - **1 session = 1 view** — a draft view is created automatically when you start a Codex session
@@ -15,16 +17,25 @@ Automatic turn recording with AI provenance, intent tracking, and knowledge grap
 
 ### Quick start
 
+Requires the [Atomic VCS](https://atomic.dev) CLI on your PATH. Then:
+
+```bash
+atomic agent enable --agent codex
+```
+
+The enable command syncs the package from Atomic storage and installs it.
+
+### Development install
+
+From a local checkout:
+
 ```bash
 git clone https://github.com/atomicdotdev/atomic-codex
 cd atomic-codex
+atomic agent enable --agent codex --from .
+
+# or the legacy script path:
 ./install.sh
-```
-
-### From npm (once published)
-
-```bash
-npx atomic-codex
 ```
 
 ### What install does
@@ -116,7 +127,7 @@ Codex session start
 ## Uninstall
 
 ```bash
-npx atomic-codex --uninstall
+atomic agent disable --agent codex
 ```
 
 Or manually:
