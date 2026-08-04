@@ -65,7 +65,8 @@ The hooks automatically:
 1. Create a draft view when the session starts
 2. Track your prompt and model info
 3. Record shell command executions in a provenance graph
-4. Record changes with full AI attestation when a turn ends
+4. Record changes with provenance when a turn ends
+5. Finalize the session attestation and restore the original view at session end
 
 You never need to run `atomic add` or `atomic record` — the hooks handle it.
 
@@ -74,7 +75,7 @@ You never need to run `atomic add` or `atomic record` — the hooks handle it.
 Codex hooks are experimental and under active development:
 
 - `PostToolUse` currently only fires for Bash tool calls (not Write, Edit, etc.)
-- No `SessionEnd` event — session cleanup relies on the next session start
+- Codex caps `SessionEnd` hooks at 3 seconds, so Atomic hands finalization to a background worker
 - Hooks require the `[features] hooks = true` feature flag
 - Windows support is temporarily disabled
 
@@ -121,7 +122,7 @@ Codex session start
   │
   ├── User sends another prompt → repeat
   │
-  └── Session ends (no hook — cleanup on next session start)
+  └── SessionEnd → Rust finalizes the attestation and restores the original view
 ```
 
 ## Uninstall
