@@ -137,7 +137,7 @@ You do **not** create or switch views, and you do **not** run `atomic add` or `a
 
 - **Session start** forks a draft view from your current view and switches into it automatically (a haikunator-named view, e.g. `early-ridge-ffd9`). Your whole session runs inside it.
 - **Turn end** records automatically — the hook runs `status` → `add` (tracks new files) → `record --all` with full AI provenance (model, tokens, cost, session, decision graph).
-- **Session end** switches back to your original view.
+- **Session end** finalizes the session attestation and switches back to your original view.
 
 To review what the hooks recorded (diff, provenance, AI attestation), use the `atomic-vcs` skill: `atomic log -f oneline`, then `atomic change -p -a`.
 

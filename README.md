@@ -106,7 +106,7 @@ atomic agent attest
 
 ## How hooks work
 
-Codex reads hooks from `.codex/hooks.json`. The Atomic hooks call back to `atomic agent hooks codex <verb>`:
+Codex reads hooks from `~/.codex/hooks.json`. The Atomic hooks call back to `atomic agent hooks codex <verb>`:
 
 ```
 Codex session start
