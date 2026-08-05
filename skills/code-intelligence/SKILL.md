@@ -12,10 +12,10 @@ You have direct access to the Atomic knowledge graph and content search index th
 ### Search Source Code Content
 
 ```
-atomic vault query code "replication"
-atomic vault query code "replication" -g "src/db/repl/"
-atomic vault query code "fn parse_query" -t rs
-atomic vault query code "TODO" -t cpp --json
+atomic query code "replication"
+atomic query code "replication" -g "src/db/repl/"
+atomic query code "fn parse_query" -t rs
+atomic query code "TODO" -t cpp --json
 ```
 
 Searches the actual source code — function bodies, comments, string literals, everything. Supports Rust-style regex, path filtering (`-g`), and file type filtering (`-t`). This is your replacement for grep.
@@ -23,8 +23,8 @@ Searches the actual source code — function bodies, comments, string literals, 
 **Regex syntax:** Use Rust/modern regex syntax, not basic `grep` syntax. For alternation, use plain `|` inside the quoted pattern:
 
 ```
-atomic vault query code "frame_pointer|frame pointer|fp_unwind|fp unwind" -t rs
-atomic vault query code "resolve|symbolize|Backtrace::from" -t rs -g "tokio/src/runtime"
+atomic query code "frame_pointer|frame pointer|fp_unwind|fp unwind" -t rs
+atomic query code "resolve|symbolize|Backtrace::from" -t rs -g "tokio/src/runtime"
 ```
 
 Do **not** escape alternation as `\|`. A pattern like `foo\|bar` searches for a literal pipe in this command, so it will usually return no matches.
@@ -32,8 +32,8 @@ Do **not** escape alternation as `\|`. A pattern like `foo\|bar` searches for a 
 ### Search the Knowledge Graph
 
 ```
-atomic vault query search "keyword"
-atomic vault query search "keyword" --json
+atomic query search "keyword"
+atomic query search "keyword" --json
 ```
 
 Returns structural nodes — files, entities (functions/classes/types), changes, views, goals, intents. Use short, specific terms. This searches names and metadata, not source content.
@@ -44,8 +44,8 @@ Returns structural nodes — files, entities (functions/classes/types), changes,
 ### Explore Neighbors
 
 ```
-atomic vault query neighbors <node_id>
-atomic vault query neighbors <node_id> --json
+atomic query neighbors <node_id>
+atomic query neighbors <node_id> --json
 ```
 
 Shows all nodes directly connected to the given node. This is how you follow relationships:
@@ -59,8 +59,8 @@ Shows all nodes directly connected to the given node. This is how you follow rel
 ### List Entities in a File
 
 ```
-atomic vault query entities src/main.rs
-atomic vault query entities src/main.rs --json
+atomic query entities src/main.rs
+atomic query entities src/main.rs --json
 ```
 
 Lists every function, class, struct, trait, type, and constant in a file using tree-sitter AST extraction. Returns name, kind, line range, exported flag, and signature.
@@ -101,22 +101,22 @@ Reads goals, intents, memories, and skills from the vault. Use this to check pro
 
 ## Workflow
 
-1. **Search content** for the concept: `atomic vault query code "replication" -t cpp`
-2. **Search structure** if you need relationships: `atomic vault query search "replication"`
-3. **Explore** a result: `atomic vault query neighbors file:src/db/repl/replication_coordinator.cpp`
-4. **List entities** for the file structure: `atomic vault query entities src/db/repl/replication_coordinator.cpp`
+1. **Search content** for the concept: `atomic query code "replication" -t cpp`
+2. **Search structure** if you need relationships: `atomic query search "replication"`
+3. **Explore** a result: `atomic query neighbors file:src/db/repl/replication_coordinator.cpp`
+4. **List entities** for the file structure: `atomic query entities src/db/repl/replication_coordinator.cpp`
 5. **Read** the specific lines you need with your built-in `read_file` tool
 
 `code` searches source content (like grep but indexed). `search` searches the KG structure (names, metadata, relationships). Use both.
 
-You are the reasoning loop. You don't need `atomic vault query ask` — that command exists for humans on the terminal who don't have you in the loop.
+You are the reasoning loop. You don't need `atomic query ask` — that command exists for humans on the terminal who don't have you in the loop.
 
 ## Enriching the Knowledge Graph
 
 If searches return sparse results, the KG may need populating:
 
 ```
-atomic vault query enrich
+atomic query enrich
 ```
 
 This extracts file nodes, change history, and tree-sitter entities into the KG. Run it once after importing a repo or when results seem thin.
@@ -127,6 +127,6 @@ This extracts file nodes, change history, and tree-sitter entities into the KG. 
 - `search` + `entities` finds structure (definitions, relationships) not raw text
 - `neighbors` on a `file:` node is a table of contents — every entity and every change that touched the file
 - Chain: code → search → neighbors → entities → read_file. Each step narrows your focus.
-- The content index and KG are built by `atomic vault query enrich` — run it if results seem sparse
+- The content index and KG are built by `atomic query enrich` — run it if results seem sparse
 - Node IDs are exact strings — a single wrong character means "not found"
-- Use `--json` on any command when you need structured output for further processing
+- Use `--json` on commands that expose it when you need structured output for further processing

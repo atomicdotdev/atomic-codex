@@ -1,35 +1,98 @@
 ---
 name: atomic-vault
-description: Teaches the Atomic vault workflow for goals, intents, memory, and the development cycle.
+description: Teaches the Atomic vault workflow — directive-based intents (a mandatory :::why plus acceptance-criteria and tasks) that must validate and attest, goals, and durable memories. Use it to author one conforming, signed intent per unit of work, track it through completion, and capture durable knowledge.
 ---
 
 # Atomic Vault Workflow
 
-The vault is Atomic's built-in project management and context system. It tracks **goals** (work sessions), **intents** (units of work), and **memory** (persistent knowledge). Always use vault commands to stay organized.
+The vault is Atomic's built-in project-management and context system. It tracks
+**intents** (units of work), **goals** (work sessions), and **memories**
+(durable knowledge). Every unit of work is a **directive-based intent** that
+must end **conforming and attested** — an intent with no `:::why` cannot be
+validated or signed, so it is dead on arrival.
 
 ## Core Concepts
 
-- **Intent**: A unit of work (like a ticket). Has an ID, title, status, and a deliverable markdown file.
-- **Goal**: A focused work session tied to one or more intents. Tracks what you're actively doing.
-- **Memory**: Persistent knowledge entries the vault retains across sessions.
+- **Intent** — a unit of work, authored as directives (`:::why`,
+  `:::acceptance-criterion`, `:::task`, `:::scope-in`/`:::scope-out`,
+  `:::constraint`). It has an ID (e.g. `PROJ::you::1`), a status, and lifts to a
+  canonical node you `validate` and `attest`.
+- **Goal** — a focused work session tying one or more intents together.
+- **Memory** — a durable, attestable knowledge record of a chosen kind
+  (`decision`, `lesson`, `constraint`, `preference`, `context`). See the
+  `/decision-record` skill.
 
 ## Intent Commands
 
 ```bash
-atomic intent list                              # List all intents (CHECK THIS FIRST)
-atomic intent new "title"                       # Create a new intent
-atomic intent show <id>                         # Show intent details
-atomic intent update <id> --status <status>     # Update intent status
-atomic intent link <id> --goal <goal>           # Link intent to a goal
+atomic intent list                                 # List intents + attested/verifies (CHECK FIRST)
+atomic intent new "<title>"                        # Create a directive-based intent
+atomic intent show <id>                            # Render the lifted intent
+atomic intent validate <id>                        # Gate it against the canonical shapes
+atomic intent attest <id>                          # Sign the conforming intent
+atomic intent verify <id>                          # Verify a signed intent
+atomic intent update <id> --status <status>        # Set status / fields
+atomic intent delete <id>                          # Delete an unstarted backlog intent
+atomic intent link <id> --goal <goal>              # Link the intent to a goal
 ```
 
-### Intent Statuses
+Always create with `atomic intent new`. (The old `atomic vault intent create`
+wrote a legacy template that did not lift — no `:::why`, so it could never
+validate or attest — and has been removed.)
 
-`backlog` → `todo` → `in_progress` → `done` (`icebox` is terminal work that will not be built)
+### Intent statuses
 
-### CRITICAL RULE: Always Check Before Creating
+`backlog` → `todo` → `in_progress` → `done`; use `icebox` when work is
+reviewed and deliberately set aside.
 
-Before creating any intent, run `atomic intent list` first. Duplicate intents cause confusion and waste effort. Only create a new intent if no existing one covers the work.
+### CRITICAL: check before creating
+
+Run `atomic intent list` first. Duplicate intents waste effort — only create a
+new one if none covers the work.
+
+## The intent file is directive-based
+
+`atomic intent new` scaffolds `.vault/intents/<id>/intent.md` with stubs you
+fill. Replace **every** stub. `:::why` is **mandatory** — the gate rejects an
+intent with no `why` (its content isn't graded, but it must be present):
+
+```markdown
+:::why
+Why this work matters — the reason it exists.
+:::
+
+:::acceptance-criterion{#<uid>-ac-1 status=unmet}
+A single concrete, checkable outcome that means "done".
+:::
+
+:::task{#<uid>-1 status=unmet criteria=<uid>-ac-1}
+An ordered work item toward the criterion above.
+::file-ref{path=path/to/file}
+:::
+
+:::scope-in
+What this intent will change.
+:::
+
+:::scope-out
+What it will deliberately NOT change.
+:::
+
+:::constraint
+A rule the implementation must respect.
+:::
+```
+
+The scaffold's `status=unmet` values are placeholders. Before an intent can be
+completed and attested, every task must be `status=done` and every acceptance
+criterion must be `status=met` with `verifiedBy` and `evidence`.
+
+After editing the file, run `atomic vault sync` to persist to the vault
+database. The CLI reads `show`/`validate`/`attest`/`update` from the database,
+not the file — so sync **before** them, or `show` renders the stale scaffold and
+`update` re-materializes the database copy over your edits, clobbering them.
+(`atomic vault sync` is not `atomic record` — hooks handle recording; you still
+run `sync`.)
 
 ## Goal Commands
 
@@ -48,46 +111,21 @@ atomic vault goal list                  # List all goals
 
 ## Memory Commands
 
+Memories are durable knowledge, authored and signed like intents:
+
 ```bash
-atomic vault memory list                # List all memory entries
-atomic vault memory show <key>          # Show a specific memory entry
-atomic vault memory write <key> "val"   # Write a memory entry
+atomic memory kinds                                        # Allowed kinds + when to use each
+atomic memory new --kind <kind> --text "..." --derived-from <urn>   # Create (canonical)
+atomic memory attest <id>                                  # Gate and sign
+atomic memory validate <id>                                # Confirm it conforms once signed
+atomic memory verify <id>                                  # Verify the signature
+atomic memory list [-n <N>]                                # List — recent first, full ULID, kind/status/attested
+atomic memory show <id>                                    # Show a memory's content
+atomic memory write <name> [--type <t>]                    # Freeform write from stdin (raw escape hatch)
 ```
 
-## The Intent File Is the Deliverable
-
-Each intent has a markdown file at `.vault/intents/<id>/intent.md`. This file IS the deliverable — fill it in completely:
-
-```markdown
-:::why
-What problem this intent solves and why it matters.
-:::
-
-:::acceptance-criterion{#proj-1-ac-1 status=unmet}
-A concrete, testable outcome.
-:::
-
-:::task{#proj-1-1 status=unmet criteria=proj-1-ac-1}
-A concrete work item and how it will be verified.
-::file-ref{path=src/example.rs}
-:::
-
-:::scope-in
-What this intent will change.
-:::
-
-:::scope-out
-What this intent deliberately will not change.
-:::
-
-:::constraint
-A rule the implementation must respect.
-:::
-```
-
-Replace every generated HTML comment stub and placeholder file path, while preserving the directive names, IDs, and fences. Canonical rendering derives status from frontmatter; do not add a second prose `Status:` field.
-
-After editing an intent file, run `atomic vault sync` to persist your changes to the vault database. The CLI reads `show`/`update`/`list` from the database, not the file — so sync **before** every `show` and `update`, or `show` will render the stale placeholder and `update` will re-materialize the database copy over your edits, clobbering them. (`atomic vault sync` is not `atomic record` — hooks handle recording; you still run `sync`.)
+Capture durable memories at turn end and classify each into the right kind —
+see the `/decision-record` skill for the rubric and source-linking.
 
 ## Full Workflow (End to End)
 
@@ -99,7 +137,7 @@ Follow this sequence for every piece of work:
 atomic intent list
 ```
 
-Look for an existing intent that matches your task. Do NOT create duplicates.
+Look for an existing intent that matches the task. Do NOT create duplicates.
 
 ### 2. Create ONE intent (if needed)
 
@@ -107,72 +145,85 @@ Look for an existing intent that matches your task. Do NOT create duplicates.
 atomic intent new "Implement user authentication"
 ```
 
-Create exactly one intent per unit of work. Fill in the intent file at `.vault/intents/<id>/intent.md`.
+One intent per unit of work. It prints the ID and the file path.
 
-### 3. Start a goal
+### 3. Fill the directives
+
+Replace every stub in `.vault/intents/<id>/intent.md`: the mandatory `:::why`,
+at least one `:::acceptance-criterion` and `:::task`, plus scope/constraints.
+Then persist:
+
+```bash
+atomic vault sync
+```
+
+### 4. (Optional) Start a goal
 
 ```bash
 atomic vault goal start "auth-implementation"
-atomic intent link <intent-id> --goal auth-implementation
+atomic intent link <id> --goal auth-implementation
 ```
 
-### 4. Do the work and check off TODOs as you go
+### 5. Do the work
 
-Write code and iterate. As each task is completed, verify it meets its criteria, then mark its directive done in the intent file using your **file editing tool** (not Python, not bash, not sed — use the agent's native edit capability):
+Write code and iterate. As each criterion's outcome holds, **verify** it (run
+the actual checks). Flip each completed task's `status=unmet` → `status=done`;
+when a criterion holds, flip its `status=unmet` → `status=met` in the intent
+file with your **file-editing tool** (never bash, Python, or sed — that bypasses
+the vault), add the verification attributes below, and `atomic vault sync`. Do
+not mark a task done or a criterion met speculatively.
 
+**Marking a criterion met takes three attributes, not one.** The gate rejects a
+checked box with nothing behind it, so set `verifiedBy` and `evidence` in the
+same edit:
+
+```markdown
+:::acceptance-criterion{#<uid>-ac-1 status=met verifiedBy="<who/what checked it>" evidence="<how it was checked>"}
 ```
-# In the intent file, change:
-:::task{#proj-1-1 status=unmet criteria=proj-1-ac-1}
-# to:
-:::task{#proj-1-1 status=done criteria=proj-1-ac-1}
+
+`verifiedBy` names what did the checking (a DID, a test name, a person);
+`evidence` records how (a command that passed, a change urn, an observation).
+Flipping only `status=met` makes `atomic intent validate` fail with
+`a met acceptance criterion must carry verifiedBy and evidence`.
+
+You do **not** create or switch views, and you do **not** run `atomic add` or
+`atomic record` — the integration's hooks own all of that:
+
+- **Session start** forks a draft view from your current view and switches into
+  it automatically. Your whole session runs inside it.
+- **Turn end** records automatically — `status` → `add` → `record --all` with
+  AI provenance (model, session, decision graph, and tokens/cost when Codex
+  supplies them).
+- **Session end** finalizes the attestation and leaves the working copy on the
+  agent view so you can review it before inserting it into a shared view.
+
+To review what the hooks recorded, use the `/atomic-vcs` skill.
+
+### 6. Attest, validate, and complete
+
+An intent is not done until it **conforms and is signed**:
+
+```bash
+atomic vault sync                          # persist your edits first
+atomic intent update <id> --status done    # mark it done
+atomic vault sync
+atomic intent attest <id>                  # gate + sign; refuses incomplete work
+atomic intent validate <id>                # confirm the signed intent conforms
+atomic intent verify <id>                  # verify its signature
 ```
 
-When a corresponding acceptance criterion is satisfied, change `status=unmet` to `status=met`. A canonical criterion that will be validated or attested must also carry real `verifiedBy` and `evidence` attributes. After every edit to the intent file, run `atomic vault sync` to persist to the database.
+`attest` runs the hard gate before signing. It only fills `attributedTo` and
+`proof`; if `why`, a task, or a criterion is incomplete, it refuses to sign.
+Fix the directives, run `atomic vault sync`, and attest again. Then `validate`
+must conform and `verify` must succeed. Confirm with `atomic intent list`: the
+intent must show `fresh` / `✓`.
 
-**Verify before checking off.** Run the actual commands or tests that prove the TODO is done. Do not mark a TODO complete speculatively.
-
-**Never use Python, bash scripts, or sed to edit intent files.** Use your agent's native file editing tool. Raw file manipulation bypasses the vault's integrity guarantees.
-
-You do **not** create or switch views, and you do **not** run `atomic add` or `atomic record` — the integration's hooks own all of that:
-
-- **Session start** forks a draft view from your current view and switches into it automatically (a haikunator-named view, e.g. `early-ridge-ffd9`). Your whole session runs inside it.
-- **Turn end** records automatically — the hook runs `status` → `add` (tracks new files) → `record --all` with full AI provenance (model, tokens, cost, session, decision graph).
-- **Session end** finalizes the session attestation and switches back to your original view.
-
-To review what the hooks recorded (diff, provenance, AI attestation), use the `atomic-vcs` skill: `atomic log -f oneline`, then `atomic change -p -a`.
-
-### 5. Complete the intent
-
-When all task directives are `status=done`:
-
-1. **Verify** every acceptance criterion by running the actual commands/tests.
-2. **Mark met** all satisfied acceptance criteria in the intent file using your file editing tool, including verification evidence where required.
-3. **Sync** to persist your edits:
-   ```bash
-   atomic vault sync
-   ```
-4. **Mark done:**
-   ```bash
-   atomic intent update <id> --status done
-   ```
-
-Always `atomic vault sync` before `intent update` — `update` re-materializes the database copy over the file, so an unsynced update discards your edits.
-
-### 6. Stop the goal when done
+### 7. Stop the goal when done
 
 ```bash
 atomic vault goal stop
 atomic vault sync
-atomic intent update <id> --status done
 ```
-
-### 7. Sync vault state
-
-```bash
-atomic vault sync
-```
-
-A final sync ensures every vault edit is in the database before the turn's automatic record captures it.
 
 ## Resuming Work
 
@@ -186,8 +237,13 @@ atomic vault goal resume "auth-implementation"
 
 ## Tips
 
-- One intent per unit of work — keep them focused
-- Start every session by checking `atomic intent list` and `atomic vault goal list`
-- Fill in every generated intent directive before starting implementation
-- Run `atomic vault sync` after editing any vault markdown file, and before every `show`/`update`
-- You don't manage views or recording — hooks fork a draft view at session start, record at turn end, then finalize the attestation and restore your original view at session end. Inspect the results with the `atomic-vcs` skill.
+- One intent per unit of work; run `atomic intent list` first.
+- **`:::why` is mandatory** — no `why`, no attest. Create with `atomic intent
+  new` (the legacy `atomic vault intent create` has been removed).
+- Fill the directives before coding; `atomic vault sync` after every file edit
+  and before every `show`/`validate`/`attest`/`update`.
+- Finish with `attest` → `validate` → `verify`; the intent isn't done until `atomic intent
+  list` shows it `fresh` / `✓`.
+- You don't manage views or recording — hooks fork a draft view at session
+  start, record at turn end, and leave you on that agent view at session end
+  for review. Inspect the results with the `/atomic-vcs` skill.

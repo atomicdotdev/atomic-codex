@@ -13,7 +13,7 @@ You use **Atomic VCS** (not git). A draft view is created for each session autom
   - `atomic view list` instead of `git branch`
   - `atomic view switch <name>` instead of `git checkout <name>` when the user explicitly asks to switch views
   - `atomic pull` / `atomic push` instead of `git pull` / `git push`
-- In this Codex integration, do **not** run `atomic add` or `atomic record`; hooks record the turn automatically.
+- **Recording is automatic.** The Codex hook integration records your changes automatically with AI provenance and the lifecycle fields Codex provides (model, session, tools, timing, and decision graph) when the turn ends. **Do NOT run `atomic add` or `atomic record` yourself** — doing so pre-empts the hook recorder's recording and loses the provenance graph. The `Stop` hook handles recording at turn end.
 
 ## Every prompt is a turn. Every turn follows this sequence.
 
@@ -23,61 +23,128 @@ You use **Atomic VCS** (not git). A draft view is created for each session autom
 atomic intent new "<short title>"
 ```
 
-This gives you an intent ID (e.g., HELL-4) and a file path.
+This scaffolds a **directive-based** intent — a `:::why`, an
+`:::acceptance-criterion`, a `:::task`, and `:::scope-in`/`:::scope-out`/
+`:::constraint` — and prints its ID (e.g. `DEMO::you::4`) and file path.
 
-### 2. Define the problem
+Use `atomic intent new` — this is the only way to create an intent. (The old
+`atomic vault intent create` wrote a legacy markdown template that did not lift
+— no `:::why`, so it could never validate or attest — and has been removed.)
 
-The user's prompt is usually a **solution** ("build me X"). Reframe it as a **problem statement**.
+### 2. Define the problem — fill the directives
 
-Ask clarifying questions if the problem is ambiguous. Do not guess — ask.
+The user's prompt is usually a **solution** ("build me X"). Reframe it as a
+**problem**. Ask clarifying questions if it's ambiguous — do not guess.
 
-Once the problem is clear, define:
+Edit the intent file and replace **every** stub:
 
-- **Why** (`:::why`) — what problem are we solving and why
-- **Acceptance criteria** (`:::acceptance-criterion`) — concrete, testable outcomes that mean "done"
-- **Tasks** (`:::task`) — ordered work items, each with accurate `::file-ref` leaves
-- **Scope and constraints** — what changes, what deliberately does not, and rules the implementation must respect
+- **`:::why`** — why this work matters. **Mandatory**: the gate rejects an
+  intent with no `why` (its content isn't graded, but it must be present).
+- **`:::acceptance-criterion{#…}`** — a single concrete, checkable outcome that
+  means "done." Add more as the work needs.
+- **`:::task{#… criteria=…}`** — an ordered work item toward a criterion; name
+  the files it touches with `::file-ref{path=…}`.
+- **`:::scope-in` / `:::scope-out` / `:::constraint`** — the boundaries and
+  rules to respect.
 
-Write all of this into the generated directive scaffold. Replace every HTML comment stub and the placeholder `path/to/file`, but preserve the directive names, IDs, and fences.
-
-Then run `atomic vault sync` to persist the file into the vault database. The intent file lives on disk, but `atomic intent show`/`update` read from the database — without `sync` they see the original placeholder template, and `update` will overwrite your file edits with it.
+Then `atomic vault sync` to persist your edits. `validate`/`attest`/`show` read
+from the database, so sync **before** them or they see the stale scaffold.
 
 ### 3. Execute the tasks
 
-Work through the TODOs in order. After completing each one:
+Work the tasks in order. After each one: **verify** it (run the checks), then
+mark it in the intent file with your **file-editing tool** — flip that task's
+`status=unmet` → `status=done`. When a criterion's outcome holds, flip its
+`status=unmet` → `status=met` and add the verification attributes below. Run
+`atomic vault sync` after each edit. Never edit the file with bash/Python/sed;
+that bypasses the vault.
 
-1. **Verify** it meets its criteria — run the commands or checks specified in the TODO.
-2. **Edit the intent file** using your file editing tool to mark its task directive done:
-   ```
-   :::task{#proj-1 status=unmet ...}   →   :::task{#proj-1 status=done ...}
-   ```
-   When an acceptance criterion is satisfied, change `status=unmet` to `status=met` and include its real `verifiedBy` and `evidence` attributes if the intent will be validated or attested.
-3. **Sync** so the database stays current:
-   ```bash
-   atomic vault sync
-   ```
+**A met criterion needs three attributes, not one.** Add `verifiedBy` and
+`evidence` in the same edit:
 
-**Use your file editing tool to update directive attributes — not bash, not Python, not sed.** Raw file manipulation bypasses the vault.
-
-### 4. Update the intent
-
-```bash
-atomic vault sync                          # persist file edits to the database first
-atomic intent update <ID> --status done
+```markdown
+:::acceptance-criterion{#<uid>-ac-1 status=met verifiedBy="<who/what checked it>" evidence="<how it was checked>"}
 ```
 
-Always `atomic vault sync` before `atomic intent show`/`update` — the CLI reads from the database, not the file, so an unsynced `show` renders the stale placeholder template and `update` re-materializes the database copy over the file, clobbering your edits.
+Setting only `status=met` fails with `a met acceptance criterion must carry
+verifiedBy and evidence`.
 
-**Do NOT run `atomic add` or `atomic record`.** The hook system records your changes automatically with full AI provenance (model, tokens, session, timing) when the turn ends. (`atomic vault sync` is not `atomic record` — it only moves your `.vault/` edits into the vault database, and you must run it even though hooks handle recording.)
+### 4. Attest, validate, and complete
+
+An intent is not done until it **conforms and is signed** — this is the gate
+that forces a clean intent:
+
+```bash
+atomic vault sync                          # persist your edits first
+atomic intent update <ID> --status done    # mark it done
+atomic vault sync
+atomic intent attest <ID>                  # gate + sign; refuses incomplete work
+atomic intent validate <ID>                # confirm the signed intent conforms
+atomic intent verify <ID>                  # verify its signature
+```
+
+`attest` runs the hard gate before signing. It only fills `attributedTo` and
+`proof`; if `why`, a task, or a criterion is incomplete, it refuses to sign.
+Fix the directives, run `atomic vault sync`, and attest again. Then `validate`
+must conform and `verify` must succeed. Confirm with `atomic intent list`: the
+intent must show `fresh` / `✓`.
+
+**Do NOT run `atomic add` or `atomic record`.** The Codex hook integration records your
+changes automatically with the available AI provenance when the turn ends. (`atomic vault
+sync` only moves your `.vault/` edits into the vault database; it is not `atomic
+record`.)
+
+### 5. Record durable memories
+
+Before finishing, review the turn's ledger and reasoning and capture each
+**durable insight** as an Atomic memory of the **right kind** — don't force
+everything into `decision`. Classify each insight into one of the allowed kinds
+(`atomic memory kinds`): `decision`, `lesson`, `constraint`, `preference`,
+`context`. A turn may yield several (e.g. a decision *and* a lesson) — record
+one memory per insight — or nothing. See the `/decision-record` skill for the
+rubric and source-linking table.
+
+For each insight: create, **attest, validate, and verify**, and
+link it to the **most specific** source it came from — the acceptance criterion,
+task, or todo — not just the intent:
+
+```bash
+ID=$(atomic memory new --kind <chosen-kind> \
+  --text "<the insight, self-contained>" \
+  --derived-from urn:atomic:ac:<UID>-ac-1,urn:atomic:intent:<UID> \
+  --json | jq -r .id)
+atomic memory attest "$ID"      # signs it — fills attributedTo + proof
+atomic memory validate "$ID"    # confirm it conforms once signed
+atomic memory verify "$ID"      # verify the signature
+```
+
+**Attest first, then validate and verify.** Validating a fresh memory exits 2
+because `attributedTo` and `proof` are only added by `attest`.
+
+`--derived-from` takes canonical urns (comma-separated), each becoming a
+`wasDerivedFrom` edge in the graph: `urn:atomic:ac:<UID>-ac-N` (acceptance
+criterion), `urn:atomic:task:<UID>-N` (task), and
+`urn:atomic:intent:<UID>` (fallback). For a todo, use
+`atomic query search "<todo text>"`, copy its exact KG id, and prefix it with
+`urn:atomic:`; todo nodes may be session-scoped. Read intent and criterion/task
+ids straight from the intent file.
+
+Record only genuine insights (chose X over Y and why, a corrective lesson, a
+constraint discovered, a durable preference/context) — **not** routine steps or
+a restatement of the intent. `atomic memory new` writes to the vault (no
+`atomic record`, no `atomic vault sync` needed); the hooks record it at turn
+end.
 
 ## Rules
 
 - **One intent per turn.** Every prompt gets its own intent.
+- **Every intent must end conforming, attested, and verified.** Create it with `atomic intent new` (the only way to create an intent), fill the mandatory `:::why` + at least one `:::acceptance-criterion` and `:::task`, mark tasks `done` and criteria `met`, and finish with `atomic intent attest` → `atomic intent validate` → `atomic intent verify`. The intent is not done until `atomic intent list` shows it `fresh` / `✓`. A missing `why` is a hard gate failure — fix it, don't skip it.
+- **Record durable memories at turn end.** Classify each durable insight into the right kind from `atomic memory kinds` (`decision`/`lesson`/`constraint`/`preference`/`context`) and `atomic memory new --kind <kind>` it (see `/decision-record`) — keep them high-signal, one memory per insight, attested, verified, and linked to the most specific source with `--derived-from`.
 - **Problem first.** Reframe solution-requests as problems. Ask questions if unclear.
 - **Write the intent file before coding.** The plan goes in the file, not just in chat.
+- **Do NOT run `atomic add` or `atomic record`.** The Codex hooks handle recording with provenance automatically. Running these commands yourself pre-empts the hook recorder and loses the provenance graph.
 - **Simplification guard.** When you pick an approach simpler than or divergent from a reference (the standard library, an existing implementation, a spec, a prior version), the simpler choice almost always drops a behavior the reference guaranteed. Name what it drops — interrupted/partial operations, error or panic states, round-trip fidelity, ordering, resource cleanup, concurrency, overflow/empty/boundary inputs — and for each, either pin it as an acceptance criterion, record it explicitly as out-of-scope with the consequence stated, or ask the user. Never leave it unstated. A decision about API *shape* is not a decision about *behavior*: the same signature can be implemented correctly or incorrectly, so resolve behavioral gaps as separate items.
 - **Do run `atomic vault sync` after editing any `.vault/` file**, and before `atomic intent show`/`update`. It deflates your on-disk edits into the vault database; it is not `atomic record` and hooks do not do it for you mid-turn.
-- **Do not run `atomic add` or `atomic record`.** Hooks handle this with provenance.
 - **Do not create or switch views.** The session view is created automatically.
 - **Do not run `atomic agent enable`.** The integration is already configured globally.
 
@@ -86,5 +153,6 @@ Always `atomic vault sync` before `atomic intent show`/`update` — the CLI read
 Use these for detailed reference when needed:
 
 - `/atomic-vault` — intent and goal lifecycle, memory operations
-- `/atomic-vcs` — inspect repository state and history: `status`, `log`, `change` (`-p` provenance, `-a` AI attestation), `diff`
+- `/decision-record` — capture durable decisions as searchable, attestable memory records at turn end
+- `/atomic-vcs` — inspect repository state and history: `status`, `log`, `change`, `provenance`, and `diff`
 - `/code-intelligence` — knowledge graph queries for code exploration

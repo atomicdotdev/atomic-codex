@@ -1,14 +1,15 @@
 ---
 name: atomic-vcs
-description: Inspect repository state and history with the Atomic VCS CLI — status, log, change (including -p provenance and -a AI attestation), and diff. Use this whenever you need to see what changed, review your own recorded work, audit AI provenance, understand a teammate's change, or check the working copy before acting. These are read-only commands, safe to run anytime.
+description: Inspect repository state and history with the Atomic VCS CLI — status, log, change, provenance, agent attest, and diff. Use this whenever you need to see what changed, review recorded work, audit AI provenance, understand a teammate's change, or check the working copy before acting. These are read-only commands, safe to run anytime.
 ---
 
 # Working with Atomic VCS
 
 Atomic is the version control system for this repository — not Git. You and Atomic
-are a pair: **hooks record your work automatically with full AI provenance** (model,
-tokens, cost, session, the decision graph), and these commands let you **read that
-history back**. Use them to ground yourself in reality instead of guessing.
+are a pair: **hooks record your work automatically with AI provenance** (model,
+session, the decision graph, and tokens/cost when Codex supplies them), and these
+commands let you **read that history back**. Use them to ground yourself in reality
+instead of guessing.
 
 You do **not** run `atomic add` or `atomic record` — the hook system does that at turn
 end. Everything in this skill is **read-only inspection**, safe to run at any point in
@@ -20,7 +21,7 @@ a turn, as often as you like.
 |---------|---------|
 | `atomic status` | What's different in the working copy right now? |
 | `atomic log`    | What's the recent history of this view? |
-| `atomic change` | What exactly is in one change? (deps, hunks, provenance, AI attestation) |
+| `atomic change` | What exactly is in one change? (deps, hunks, decision ledger, AI metadata) |
 | `atomic diff`   | What are the precise line/token edits, working copy vs. recorded? |
 
 Start with `status` to orient, `log` to scan history, `change`/`diff` to drill in.
@@ -82,12 +83,13 @@ Detail flags:
 atomic change <id> --show-deps     # show each dependency change's message
 atomic change <id> --show-hunks    # show per-hunk graph-op details
 atomic change <id> --full-hash     # full hashes
-atomic change <id> -f json         # machine-readable
-atomic change <id> -a              # AI attestation  (see below)
-atomic change <id> -p              # provenance graph (see below)
+atomic change <id> -f json         # machine-readable, including embedded provenance
 ```
 
-### `change -a` — AI attestation (`--attest`)
+The default `atomic change <id>` output already includes both sections below
+when the data exists. There are no `-a` or `-p` flags in Atomic 0.13.
+
+### Inline AI metadata
 
 Shows the AI metadata recorded inline in the change header:
 
@@ -99,7 +101,7 @@ Shows the AI metadata recorded inline in the change header:
 Use this to **audit authorship**: was a change human-written, AI-assisted, or fully
 AI-authored, and at what cost? This is the trust layer that makes AI commits reviewable.
 
-### `change -p` — provenance decision graph (`--provenance`)
+### Change ledger — causal decision graph
 
 Shows the causal decision DAG stored in the change's `.provenance` file — the *why*
 behind the *what*:
@@ -111,11 +113,26 @@ behind the *what*:
 - **patch proposals** — the edits that became this change
 
 This is uniquely powerful for collaboration: instead of reverse-engineering intent from
-a diff, you read the actual reasoning chain. Use `change -p` to **understand why a prior
+a diff, you read the actual reasoning chain. Use `atomic change <id>` to **understand why a prior
 change was made before building on or modifying it** — including your own earlier turns.
 
-Combine them: `atomic change <id> -a -p --show-deps` gives the full picture — what it
-depends on, who/what authored it, what it cost, and the reasoning that produced it.
+Use `atomic change <id> --show-deps` for the full picture — what it depends on,
+who/what authored it, what it cost, and the reasoning that produced it.
+
+### `atomic provenance` — project the ledger as W3C PROV
+
+```bash
+atomic provenance trace <id>          # human-readable flywheel chain
+atomic provenance trace <id> --json   # plain PROV JSON-LD graph
+atomic provenance trace <id> --json --sign  # signed JSON-LD artifact
+atomic provenance show <id>           # named PROV JSON-LD subgraph
+atomic provenance show <id> --sign    # signed named subgraph
+```
+
+`atomic provenance` reads the captured ledger and projects it; it does not
+replace the inline AI metadata in `atomic change`. Use `atomic agent attest`
+to list session-level attestation receipts, or `atomic agent attest --hash
+<attestation-hash>` to inspect one.
 
 ## `atomic diff` — precise edits
 
@@ -146,19 +163,20 @@ atomic log -n 5 -f oneline  # what happened recently?
 
 **Review your own last recorded change**
 ```bash
-atomic change -a -p         # what did I just do, and is the provenance correct?
+atomic change               # what did I just do, and is the ledger correct?
 ```
 
 **Understand a change before modifying its code**
 ```bash
 atomic log --path src/auth.rs -f oneline   # find the change that introduced it
-atomic change <hash> -p --show-deps        # read the reasoning + dependencies
+atomic change <hash> --show-deps           # read the ledger + dependencies
 ```
 
 **Audit AI authorship across recent history**
 ```bash
 atomic log -n 20 -f json    # then inspect interesting ones:
-atomic change <hash> -a
+atomic change <hash>
+atomic agent attest
 ```
 
 **Verify before the turn ends**
@@ -174,8 +192,8 @@ atomic diff --stat          # confirm the size/shape of the change
 | See uncommitted changes | `atomic status` / `atomic diff` | ~~git status / git diff~~ |
 | Scan recent history | `atomic log -f oneline` | ~~git log~~ |
 | Inspect one change in full | `atomic change <id> --show-hunks` | ~~git show~~ |
-| See why a change was made | `atomic change <id> -p` | ~~guessing from the diff~~ |
-| Check model/tokens/cost of a change | `atomic change <id> -a` | ~~assuming~~ |
+| See why a change was made | `atomic change <id>` / `atomic provenance trace <id>` | ~~guessing from the diff~~ |
+| Check model/tokens/cost of a change | `atomic change <id>` / `atomic agent attest` | ~~assuming~~ |
 | Token-level review of an edit | `atomic diff --word-diff` | ~~eyeballing the line~~ |
 | Find changes touching a file | `atomic log --path <file>` | ~~grep through history~~ |
 | Feed history to a script | add `-f json` / `--name-status` | ~~parsing human output~~ |
@@ -188,6 +206,6 @@ atomic diff --stat          # confirm the size/shape of the change
 - Quote sequence references so the shell doesn't treat `#` as a comment: `atomic change '#42'`.
 - Add `-f json` (log/change) or `--name-status` (diff) when you need to parse output.
 - For *code structure and content* search (functions, definitions, text), use the
-  `code-intelligence` skill (`atomic vault query ...`). This skill is for *version
+  `code-intelligence` skill (`atomic query ...`). This skill is for *version
   history and working-copy state*.
 - For the goals/intents/memory and recording workflow, see the `atomic-vault` skill.
