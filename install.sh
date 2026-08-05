@@ -50,7 +50,7 @@ echo "  agents: AGENTS.md → ~/.codex/AGENTS.md"
 
 mkdir -p "$SKILLS_TARGET"
 skills_linked=0
-for skill in atomic-vault atomic-vcs code-intelligence; do
+for skill in atomic-vault atomic-vcs code-intelligence decision-record; do
   src="$SCRIPT_DIR/skills/$skill/SKILL.md"
   if [ -f "$src" ]; then
     mkdir -p "$SKILLS_TARGET/$skill"
@@ -75,7 +75,7 @@ What was installed:
                  ${MANIFEST})
   • Agents     AGENTS.md symlinked → ~/.codex/AGENTS.md
   • Skills     ${skills_linked} symlinked → ~/.codex/skills/
-               (/atomic-vault, /atomic-vcs, /code-intelligence)
+               (/atomic-vault, /atomic-vcs, /code-intelligence, /decision-record)
 
 Symlinks point back into this checkout:
   ${SCRIPT_DIR}

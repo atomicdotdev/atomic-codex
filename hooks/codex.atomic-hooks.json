@@ -14,6 +14,17 @@
         ]
       }
     ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -d .atomic || test -f .atomic-sandbox && atomic agent hooks codex session-end || true",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
@@ -49,7 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "test -d .atomic || test -f .atomic-sandbox && atomic agent hooks codex stop || true"
+            "command": "test -d .atomic || test -f .atomic-sandbox && atomic agent hooks codex stop --foreground || true"
           }
         ]
       }

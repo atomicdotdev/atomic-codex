@@ -34,7 +34,12 @@ const SKILLS_TARGET = path.join(CODEX_DIR, "skills");
 const AGENTS_SRC = path.join(PKG_DIR, "AGENTS.md");
 const AGENTS_DST = path.join(CODEX_DIR, "AGENTS.md");
 
-const SKILLS = ["atomic-vault", "atomic-vcs", "code-intelligence"];
+const SKILLS = [
+  "atomic-vault",
+  "atomic-vcs",
+  "code-intelligence",
+  "decision-record",
+];
 
 function tryExec(cmd) {
   try {
@@ -141,7 +146,7 @@ function doInstall() {
       `  Config: ${configStatus} (~/.codex/config.toml [features] hooks = true)`,
     );
     console.log(
-      "  Skills: ~/.codex/skills/ (/atomic-vault, /atomic-vcs, /code-intelligence)",
+      "  Skills: ~/.codex/skills/ (/atomic-vault, /atomic-vcs, /code-intelligence, /decision-record)",
     );
     console.log();
     console.log(
