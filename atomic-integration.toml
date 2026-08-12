@@ -5,21 +5,28 @@ version = "1.0.0"
 [requires]
 atomic = ">=0.11.0"
 
-[[file]]
+[skills-source]
+package = "atomic-skills"
+
+[[skill]]
 src = "AGENTS.md"
 dst = "~/.codex/AGENTS.md"
 
-[[file]]
+[[skill]]
 src = "skills/atomic-vault/SKILL.md"
 dst = "~/.codex/skills/atomic-vault/SKILL.md"
 
-[[file]]
+[[skill]]
 src = "skills/atomic-vcs/SKILL.md"
 dst = "~/.codex/skills/atomic-vcs/SKILL.md"
 
-[[file]]
+[[skill]]
 src = "skills/code-intelligence/SKILL.md"
 dst = "~/.codex/skills/code-intelligence/SKILL.md"
+
+[[repo-file]]
+src = "AGENTS.md"
+dst = "AGENTS.md"
 
 [[settings]]
 manifest = "hooks/codex.atomic-hooks.json"
