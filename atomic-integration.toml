@@ -8,21 +8,13 @@ atomic = ">=0.11.0"
 [skills-source]
 package = "atomic-skills"
 
+[skills]
+install = "all"
+dst_pattern = "~/.codex/skills/{name}/SKILL.md"
+
 [[skill]]
 src = "AGENTS.md"
 dst = "~/.codex/AGENTS.md"
-
-[[skill]]
-src = "skills/atomic-vault/SKILL.md"
-dst = "~/.codex/skills/atomic-vault/SKILL.md"
-
-[[skill]]
-src = "skills/atomic-vcs/SKILL.md"
-dst = "~/.codex/skills/atomic-vcs/SKILL.md"
-
-[[skill]]
-src = "skills/code-intelligence/SKILL.md"
-dst = "~/.codex/skills/code-intelligence/SKILL.md"
 
 [[repo-file]]
 src = "AGENTS.md"
